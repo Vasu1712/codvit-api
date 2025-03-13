@@ -17,16 +17,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const { code, problem } = req.body;
-    if (!code || !problem) {
+    const { code, problem, language } = req.body;
+    if (!code || !problem || !language) {
       return res.status(400).json({ error: 'Code or problem description is missing.' });
     }
 
-    const prompt = `Evaluate the following code for correctness and alignment with the given problem description:
-    
-    Problem: ${problem}
-    Code: ${code}
-    Is the code acceptable? Answer 'Yes' or 'No'. Provide a brief explanation.`;
+    // Structured prompt to force a JSON-like response
+    const prompt = `You are a precise code evaluator for programming challenges.
+      Problem: ${problem}
+      User Solution: ${code}
+      Language: ${language}
+
+      Analyze the code for correctness, efficiency, edge cases, and code quality.
+      After your evaluation, return the result in this structured JSON format:
+
+      {
+        "isAcceptable": "Yes" or "No",
+        "explanation": "A brief explanation of why the solution is correct or incorrect."
+      }
+
+      Only return the JSON object without any extra text or explanations.`;
 
     const response = await hf.textGeneration({
       model: 'mistralai/Mistral-7B-Instruct-v0.3',
@@ -37,24 +47,57 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const generatedText = response?.generated_text?.trim();
     console.log('Generated Response:', generatedText); // Log for debugging
 
-    // Improved parsing logic
+    // Attempt to extract the last JSON object in the text
+    try {
+      // Find all JSON-like patterns in the response
+      const jsonPattern = /\{[\s\S]*?\}/g;
+      const matches = [...generatedText.matchAll(jsonPattern)];
+      
+      if (matches.length > 0) {
+        // Take the last match, which is most likely the result JSON
+        const lastJsonMatch = matches[matches.length - 1][0];
+        
+        try {
+          const parsedResult = JSON.parse(lastJsonMatch);
+          
+          if (parsedResult && typeof parsedResult === 'object') {
+            const isAcceptable = parsedResult.isAcceptable?.toLowerCase() === 'yes';
+            const explanation = parsedResult.explanation || 'No explanation provided.';
+            
+            return res.status(200).json({
+              isAcceptable,
+              description: explanation
+            });
+          }
+        } catch (jsonError) {
+          console.warn('Failed to parse extracted JSON:', jsonError);
+          // Continue to fallback methods
+        }
+      }
+    } catch (regexError) {
+      console.warn('Failed to extract JSON with regex:', regexError);
+    }
+
+    // Fallback to simpler parsing if JSON extraction fails
     const match = generatedText.match(/(Yes|No)/i);
     if (match) {
       const isAcceptable = match[1].toLowerCase() === 'yes';
       const description = generatedText.replace(/(Yes|No)/i, '').trim();
-
+      
       return res.status(200).json({
-        isAcceptable: isAcceptable,
-        description: description || '',
+        isAcceptable,
+        description: description || 'No detailed explanation available.'
       });
     }
 
     return res.status(200).json({
       isAcceptable: false,
-      description: "Unable to determine acceptability from the response.",
+      description: "Unable to determine acceptability from the response."
     });
   } catch (error) {
     console.error('Server Error:', error);
     return res.status(500).json({ error: 'Internal server error.' });
   }
 }
+
+
