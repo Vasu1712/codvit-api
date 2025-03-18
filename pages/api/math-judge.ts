@@ -1,8 +1,11 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 
-// Access the same cache from the riddles endpoint
-// In production, use a proper database or Redis
-const riddleCache = new Map();
+const riddleCache = new Map<string, {
+  description: string;
+  title: string;
+  correctAnswer: string;
+  explanation?: string;
+}>();
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -18,30 +21,38 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const { riddleId, selectedOptionIndex } = req.body;
+    const { answer, riddleId } = req.body;
     
-    if (riddleId === undefined || selectedOptionIndex === undefined) {
-      return res.status(400).json({ error: 'Missing riddleId or selectedOptionIndex' });
+    if (!answer || !riddleId) {
+      return res.status(400).json({ 
+        error: 'Answer or riddleId is missing.',
+        isAcceptable: false,
+        description: 'Please provide both an answer and a riddleId.'
+      });
     }
-    
-    // Retrieve the stored riddle data
+
+    // Retrieve the cached riddle data
     const riddleData = riddleCache.get(riddleId);
     
     if (!riddleData) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         isAcceptable: false,
-        description: "Riddle data not found or expired. Please try a new riddle." 
+        description: "Riddle not found or expired. Please try a new riddle."
       });
     }
+
+    // Compare the user's answer with the stored correct answer
+    // Normalize both answers for comparison (lowercase, trim spaces)
+    const normalizedUserAnswer = answer.toLowerCase().trim();
+    const normalizedCorrectAnswer = riddleData.correctAnswer.toLowerCase().trim();
     
-    // Check if the selected option is correct
-    const isCorrect = parseInt(selectedOptionIndex) === riddleData.correctOptionIndex;
+    const isCorrect = normalizedUserAnswer === normalizedCorrectAnswer;
     
     return res.status(200).json({
       isAcceptable: isCorrect,
       description: isCorrect 
-        ? `Correct! ${riddleData.explanation}` 
-        : "That's not the right answer. Try again with a new riddle."
+        ? `Correct! ${riddleData.explanation || ''}` 
+        : "That's not the right answer. Try again!"
     });
   } catch (error) {
     console.error('Server Error:', error);

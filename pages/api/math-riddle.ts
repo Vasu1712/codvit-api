@@ -114,9 +114,12 @@ import crypto from 'crypto';
 
 const hf = new HfInference(process.env.HUGGING_FACE_API_KEY);
 
-// Simple in-memory cache (replace with Redis in production)
-const riddleCache = new Map();
-
+const riddleCache = new Map<string, {
+    description: string;
+    title: string;
+    correctAnswer: string;
+    explanation?: string;
+  }>();
 interface MathRiddleResponse {
   riddleId?: string;
   title?: string;
@@ -179,22 +182,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
     if (response && response.generated_text) {
       try {
-        // Extract JSON from the response
+        
         const jsonMatches = response.generated_text.match(/\{[\s\S]*?\}/g);
         
         if (jsonMatches && jsonMatches.length > 0) {
           const lastJsonStr = jsonMatches[jsonMatches.length - 1];
           const parsedData = JSON.parse(lastJsonStr);
           
-          // Generate a unique ID for this riddle
           const riddleId = crypto.randomUUID();
           
-          // Store the complete data (including the correct answer) in our cache
           riddleCache.set(riddleId, {
             title: parsedData.title,
             description: parsedData.description,
-            options: parsedData.options,
-            correctOptionIndex: parsedData.correctOptionIndex,
+            correctAnswer: parsedData.correctAnswer,
             explanation: parsedData.explanation
           });
           
