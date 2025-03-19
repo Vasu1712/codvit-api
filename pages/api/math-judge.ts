@@ -1,13 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 
-const riddleCache = new Map<string, {
-  correctOptionIndex: number;
-  description: string;
-  title: string;
-  correctAnswer: string;
-  explanation?: string;
-}>();
-
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -22,37 +14,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const { selectedOptionIndex, riddleId } = req.body;
+    const { selectedOptionIndex, _hiddenData } = req.body;
     
-    if (selectedOptionIndex === undefined || !riddleId) {
-        return res.status(400).json({
-          error: 'Selected option index or riddleId is missing.',
-          isAcceptable: false,
-          description: 'Please provide both a selected option and a riddleId.'
-        });
-      }
-      
-      console.log(`Looking up riddle with ID ${riddleId}`);
-      console.log(`Cache has ${riddleCache.size} entries`);
-      
-      // Retrieve the stored riddle data
-      const riddleData = riddleCache.get(riddleId);
-    
-    if (!riddleData) {
-      return res.status(404).json({
+    if (selectedOptionIndex === undefined || !_hiddenData) {
+      return res.status(400).json({
+        error: 'Selected option index or hidden data is missing.',
         isAcceptable: false,
-        description: "Riddle not found or expired. Please try a new riddle."
+        description: 'Please provide both a selected option and the hidden data.'
       });
     }
-
-    const isCorrect = parseInt(selectedOptionIndex) === riddleData.correctOptionIndex;
     
-    return res.status(200).json({
-      isAcceptable: isCorrect,
-      description: isCorrect
-        ? `Correct! ${riddleData.explanation || ''}`
-        : "That's not the right answer. Try again!"
-    });
+    try {
+      // Decode the hidden data
+      const hiddenDataStr = Buffer.from(_hiddenData, 'base64').toString('utf8');
+      const { correctOptionIndex, explanation } = JSON.parse(hiddenDataStr);
+      
+      // Compare selected option with correct option
+      const isCorrect = parseInt(selectedOptionIndex) === correctOptionIndex;
+      
+      return res.status(200).json({
+        isAcceptable: isCorrect,
+        description: isCorrect 
+          ? `Correct! ${explanation || ''}` 
+          : "That's not the right answer. Try again!"
+      });
+    } catch (decodeError) {
+      console.error('Error decoding hidden data:', decodeError);
+      return res.status(400).json({ 
+        isAcceptable: false,
+        description: 'Invalid hidden data. Please try a new riddle.'
+      });
+    }
   } catch (error) {
     console.error('Server Error:', error);
     return res.status(500).json({ error: 'Internal server error.' });

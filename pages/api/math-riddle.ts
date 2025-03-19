@@ -1,27 +1,18 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { HfInference } from '@huggingface/inference';
-import crypto from 'crypto';
+// import crypto from 'crypto';
 
 const hf = new HfInference(process.env.HUGGING_FACE_API_KEY);
-interface MathRiddleResponse {
-  riddleId?: string;
-  title?: string;
-  description?: string;
-  options?: string[];
-  message?: string;
-}
 
-interface RiddleCacheEntry {
-  title: string;
-  description: string;
-  options: string[];
-  correctOptionIndex: number;
-  explanation?: string;
-}
+// interface MathRiddleResponse {
+//   title?: string;
+//   description?: string;
+//   options?: string[];
+//   _hiddenData?: string;
+//   message?: string;
+// }
 
-const riddleCache = new Map<string, RiddleCacheEntry>();
-
-export default async function handler(req: NextApiRequest, res: NextApiResponse<MathRiddleResponse>) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -75,28 +66,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
 
     if (response && response.generated_text) {
       try {
-        
+        // Extract JSON from the response
         const jsonMatches = response.generated_text.match(/\{[\s\S]*?\}/g);
         
         if (jsonMatches && jsonMatches.length > 0) {
           const lastJsonStr = jsonMatches[jsonMatches.length - 1];
           const parsedData = JSON.parse(lastJsonStr);
           
-          const riddleId = crypto.randomUUID();
+          // Create hidden data with correctOptionIndex and explanation
+          const secretData = {
+            correctOptionIndex: parsedData.correctOptionIndex,
+            explanation: parsedData.explanation
+          };
           
-          riddleCache.set(riddleId, {
+          // Base64 encode the secret data
+          const _hiddenData = Buffer.from(JSON.stringify(secretData)).toString('base64');
+          
+          // Return data to client (including encoded hidden data)
+          return res.status(200).json({
             title: parsedData.title,
             description: parsedData.description,
             options: parsedData.options,
-            correctOptionIndex: parsedData.correctOptionIndex,
-            explanation: parsedData.explanation
-          });
-          
-          return res.status(200).json({
-            riddleId,
-            title: parsedData.title,
-            description: parsedData.description,
-            options: parsedData.options
+            _hiddenData // The client will pass this back when submitting
           });
         }
       } catch (parseError) {
