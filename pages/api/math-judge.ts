@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 
 const riddleCache = new Map<string, {
+  correctOptionIndex: number;
   description: string;
   title: string;
   correctAnswer: string;
@@ -21,18 +22,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const { answer, riddleId } = req.body;
+    const { selectedOptionIndex, riddleId } = req.body;
     
-    if (!answer || !riddleId) {
-      return res.status(400).json({ 
-        error: 'Answer or riddleId is missing.',
-        isAcceptable: false,
-        description: 'Please provide both an answer and a riddleId.'
-      });
-    }
-
-    // Retrieve the cached riddle data
-    const riddleData = riddleCache.get(riddleId);
+    if (selectedOptionIndex === undefined || !riddleId) {
+        return res.status(400).json({
+          error: 'Selected option index or riddleId is missing.',
+          isAcceptable: false,
+          description: 'Please provide both a selected option and a riddleId.'
+        });
+      }
+      
+      console.log(`Looking up riddle with ID ${riddleId}`);
+      console.log(`Cache has ${riddleCache.size} entries`);
+      
+      // Retrieve the stored riddle data
+      const riddleData = riddleCache.get(riddleId);
     
     if (!riddleData) {
       return res.status(404).json({
@@ -41,17 +45,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // Compare the user's answer with the stored correct answer
-    // Normalize both answers for comparison (lowercase, trim spaces)
-    const normalizedUserAnswer = answer.toLowerCase().trim();
-    const normalizedCorrectAnswer = riddleData.correctAnswer.toLowerCase().trim();
-    
-    const isCorrect = normalizedUserAnswer === normalizedCorrectAnswer;
+    const isCorrect = parseInt(selectedOptionIndex) === riddleData.correctOptionIndex;
     
     return res.status(200).json({
       isAcceptable: isCorrect,
-      description: isCorrect 
-        ? `Correct! ${riddleData.explanation || ''}` 
+      description: isCorrect
+        ? `Correct! ${riddleData.explanation || ''}`
         : "That's not the right answer. Try again!"
     });
   } catch (error) {
