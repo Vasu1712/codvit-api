@@ -3,13 +3,6 @@ import { HfInference } from '@huggingface/inference';
 import crypto from 'crypto';
 
 const hf = new HfInference(process.env.HUGGING_FACE_API_KEY);
-
-const riddleCache = new Map<string, {
-    description: string;
-    title: string;
-    correctAnswer: string;
-    explanation?: string;
-  }>();
 interface MathRiddleResponse {
   riddleId?: string;
   title?: string;
@@ -17,6 +10,16 @@ interface MathRiddleResponse {
   options?: string[];
   message?: string;
 }
+
+interface RiddleCacheEntry {
+  title: string;
+  description: string;
+  options: string[];
+  correctOptionIndex: number;
+  explanation?: string;
+}
+
+const riddleCache = new Map<string, RiddleCacheEntry>();
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<MathRiddleResponse>) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -89,7 +92,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
             explanation: parsedData.explanation
           });
           
-          // Return only what the client needs to know
           return res.status(200).json({
             riddleId,
             title: parsedData.title,
