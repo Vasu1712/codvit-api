@@ -1,11 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { v2 as cloudinary } from 'cloudinary';
+import { createClient } from '@vercel/edge-config';
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
+const edgeConfig = createClient(process.env.EDGE_CONFIG);
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -13,27 +9,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Get all puzzles from Cloudinary
-    const result = await cloudinary.search
-      .expression('folder:puzzle-submissions')
-      .sort_by('public_id', 'desc')
-      .max_results(30)
-      .execute();
-
-    if (result.resources.length > 0) {
-      // Select a random puzzle
-      const randomIndex = Math.floor(Math.random() * result.resources.length);
-      const puzzle = result.resources[randomIndex];
-
-      res.status(200).json({
-        imageUrl: puzzle.secure_url,
-        description: puzzle.context.description,
-        username: puzzle.context.username,
-        submissionDate: puzzle.context.submissionDate
-      });
-    } else {
-      res.status(404).json({ message: 'No puzzles found' });
+    // Get all puzzle keys
+    const puzzleKeys = (await edgeConfig.get('puzzleKeys')) as string[] || [];
+    
+    if (puzzleKeys.length === 0) {
+      return res.status(404).json({ message: 'No puzzles found' });
     }
+
+    // Select a random puzzle
+    const randomKey = puzzleKeys[Math.floor(Math.random() * puzzleKeys.length)] as string;
+    const puzzleData = await edgeConfig.get(randomKey);
+
+    if (!puzzleData || typeof puzzleData !== 'object' || Array.isArray(puzzleData)) {
+      return res.status(404).json({ message: 'Puzzle not found' });
+    }
+
+    res.status(200).json({
+      imageUrl: puzzleData.imageUrl,
+      description: puzzleData.description,
+      username: puzzleData.username,
+      submissionDate: puzzleData.submissionDate
+    });
   } catch (error) {
     console.error('Error:', error);
     res.status(500).json({ message: 'Internal server error' });
