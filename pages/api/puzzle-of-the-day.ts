@@ -1,7 +1,10 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createClient } from '@vercel/edge-config';
+import { createClient } from '@supabase/supabase-js';
 
-const edgeConfig = createClient(process.env.EDGE_CONFIG);
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -9,26 +12,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Get all puzzle keys
-    const puzzleKeys = (await edgeConfig.get('puzzleKeys')) as string[] || [];
-    
-    if (puzzleKeys.length === 0) {
+    const { data, error } = await supabase
+      .from('puzzles')
+      .select('*')
+      .order('submission_date', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error) throw error;
+
+    if (!data) {
       return res.status(404).json({ message: 'No puzzles found' });
     }
 
-    // Select a random puzzle
-    const randomKey = puzzleKeys[Math.floor(Math.random() * puzzleKeys.length)] as string;
-    const puzzleData = await edgeConfig.get(randomKey);
-
-    if (!puzzleData || typeof puzzleData !== 'object' || Array.isArray(puzzleData)) {
-      return res.status(404).json({ message: 'Puzzle not found' });
-    }
-
     res.status(200).json({
-      imageUrl: puzzleData.imageUrl,
-      description: puzzleData.description,
-      username: puzzleData.username,
-      submissionDate: puzzleData.submissionDate
+      imageUrl: data.image_url,
+      description: data.description,
+      username: data.username,
+      submissionDate: data.submission_date
     });
   } catch (error) {
     console.error('Error:', error);
