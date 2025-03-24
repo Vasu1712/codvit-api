@@ -1,12 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { v2 as cloudinary } from 'cloudinary';
 import { kv } from '@vercel/kv';
-
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
-});
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -24,7 +17,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       answer,
       imageUrl: image,
       submissionDate: new Date().toISOString()
-    }), { ex: 86400 * 90 }); // Expire after 30 days
+    }), { ex: 86400 * 90 }); // Expire after 90 days
 
     res.status(200).json({ message: 'Puzzle submitted successfully' });
   } catch (error) {
