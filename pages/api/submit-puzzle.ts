@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { v2 as cloudinary } from 'cloudinary';
+import { kv } from '@vercel/kv';
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -13,27 +14,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const { image, description, answer, username } = req.body;
+    const { title, description, answer, image } = req.body;
 
-    // Upload image to Cloudinary
-    const uploadResponse = await cloudinary.uploader.upload(image, {
-      folder: 'puzzle-submissions',
-      public_id: `puzzle-${Date.now()}`,
-      context: {
-        description: description,
-        answer: answer,
-        username: username,
-        submissionDate: new Date().toISOString()
-      }
-    });
+    // Store puzzle data in Vercel KV
+    const puzzleId = `puzzle:${Date.now()}`;
+    await kv.set(puzzleId, JSON.stringify({
+      title,
+      description,
+      answer,
+      imageUrl: image,
+      submissionDate: new Date().toISOString()
+    }), { ex: 86400 * 90 }); // Expire after 30 days
 
-    res.status(200).json({ 
-      message: 'Puzzle submitted successfully',
-      imageUrl: uploadResponse.secure_url,
-      publicId: uploadResponse.public_id
-    });
+    res.status(200).json({ message: 'Puzzle submitted successfully' });
   } catch (error) {
     console.error('Error submitting puzzle:', error);
     res.status(500).json({ message: 'Error submitting puzzle' });
   }
 }
+
