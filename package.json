@@ -9,9 +9,13 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@google-cloud/vertexai": "^1.9.3",
+    "@google/generative-ai": "^0.24.0",
     "@huggingface/hub": "^1.0.0",
     "@huggingface/inference": "^2.8.1",
+    "@vercel/kv": "^3.0.0",
     "axios": "^1.7.9",
+    "cloudinary": "^2.6.0",
     "next": "15.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
