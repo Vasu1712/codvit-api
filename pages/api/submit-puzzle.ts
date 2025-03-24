@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,7 +14,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const { title, description, answer, image } = req.body;
-    const puzzleId = `puzzle:${Date.now()}`;
+    const puzzleId = crypto.randomUUID();
 
     const { error } = await supabase
       .from('puzzles')
@@ -28,7 +29,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (error) throw error;
 
-    res.status(200).json({ message: 'Puzzle submitted successfully' });
+    res.status(200).json({ message: 'Puzzle submitted successfully', puzzleId });
   } catch (error) {
     console.error('Error submitting puzzle:', error);
     res.status(500).json({ message: 'Error submitting puzzle' });
