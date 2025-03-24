@@ -1,18 +1,17 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { HfInference } from '@huggingface/inference';
-// import crypto from 'crypto';
 
 const hf = new HfInference(process.env.HUGGING_FACE_API_KEY);
 
-// interface MathRiddleResponse {
-//   title?: string;
-//   description?: string;
-//   options?: string[];
-//   _hiddenData?: string;
-//   message?: string;
-// }
+interface MathRiddleResponse {
+  title?: string;
+  description?: string;
+  options?: string[];
+  _hiddenData?: string;
+  message?: string;
+}
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse<MathRiddleResponse>) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
