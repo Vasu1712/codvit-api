@@ -26,6 +26,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     res.status(200).json({
+      puzzleId: data.id,
+      title: data.title,
       imageUrl: data.image_url,
       description: data.description,
       username: data.username,
