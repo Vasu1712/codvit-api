@@ -1,28 +1,81 @@
-import { NextApiRequest, NextApiResponse } from 'next';
-import fs from 'fs';
-import path from 'path';
+import { createClient } from '@supabase/supabase-js'
+import { NextApiRequest, NextApiResponse } from 'next'
 
-const puzzlesPath = path.join(process.cwd(), 'puzzles.json');
-const puzzles = JSON.parse(fs.readFileSync(puzzlesPath, 'utf8'));
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
+interface Submission {
+  puzzle_id: string;
+  username: string;
+  time_taken: number;
+  submission_time: string; // Change this from Date to string
+}
+
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  const { puzzleId, answer, submissionTime } = req.body;
-  const puzzle = puzzles.find((p: { id: unknown; }) => p.id === puzzleId);
+  const { puzzleId, answer, submissionTime, username } = req.body;
 
-  if (!puzzle) {
-    return res.status(404).json({ message: 'Puzzle not found' });
+  try {
+    // 1. Validate puzzle answer
+    const { data: puzzle, error } = await supabase
+      .from('puzzles')
+      .select('answer')
+      .eq('id', puzzleId)
+      .single();
+
+    if (error || !puzzle) throw new Error('Invalid puzzle');
+
+    const isCorrect = puzzle.answer.toLowerCase() === answer.toLowerCase();
+
+    if (!isCorrect) {
+      return res.status(200).json({ isCorrect: false });
+    }
+
+     //Storing correct submission
+    const { error: submissionError } = await supabase
+      .from('potd-submissions')
+      .insert({
+        puzzle_id: puzzleId,
+        username,
+        time_taken: submissionTime,
+        submission_time: new Date().toISOString()
+      } as Submission) // Add type assertion here
+      .select()
+      .single();
+
+    if (submissionError) throw submissionError;
+
+
+    // 3. Calculate percentile
+    const { count: total } = await supabase
+      .from('potd-submissions')
+      .select('*', { count: 'exact' })
+      .eq('puzzle_id', puzzleId);
+
+    const { count: faster } = await supabase
+      .from('potd-submissions')
+      .select('*', { count: 'exact' })
+      .eq('puzzle_id', puzzleId)
+      .lt('time_taken', submissionTime);
+
+    const percentile = ((faster || 0) / (total || 1)) * 100;
+
+    res.status(200).json({
+      isCorrect: true,
+      timeTaken: submissionTime,
+      percentileBeat: percentile.toFixed(2)
+    });
+
+  } catch (error) {
+    console.error('Submission error:', error);
+    res.status(500).json({ 
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
-
-  const isCorrect = puzzle.answer.toLowerCase() === answer.toLowerCase();
-  
-  // Here, you would typically save the submission to a database
-  // For this example, we'll just return the result
-  res.status(200).json({
-    isCorrect,
-    timeTaken: submissionTime
-  });
 }
