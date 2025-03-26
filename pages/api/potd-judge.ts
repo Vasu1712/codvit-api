@@ -15,19 +15,38 @@ interface Submission {
 
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
   const { puzzleId, answer, submissionTime, username } = req.body;
+  console.log('Incoming request body:', req.body);
+    
+    if (!puzzleId || typeof puzzleId !== 'string') {
+      return res.status(400).json({ 
+        error: 'Invalid puzzleId format' 
+      });
+    }
+
+    if (!answer || !username) {
+      return res.status(400).json({ 
+        error: 'Missing required fields' 
+      });
+    }
 
   try {
+
+    console.log('Checking puzzle with ID:', puzzleId);
     // 1. Validate puzzle answer
     const { data: puzzle, error } = await supabase
       .from('puzzles')
       .select('*')
       .eq('id', puzzleId)
       .single();
+
+    console.log('Puzzle query result:', puzzle);
+    console.log('Puzzle query error:', error);
 
     if (error || !puzzle) throw new Error('Invalid puzzle');
 
@@ -39,7 +58,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
      //Storing correct submission
     const { error: submissionError } = await supabase
-      .from('potd-submissions')
+      .from('potd_submissions')
       .insert({
         puzzle_id: puzzleId,
         username,
@@ -54,12 +73,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 3. Calculate percentile
     const { count: total } = await supabase
-      .from('potd-submissions')
+      .from('potd_submissions')
       .select('*', { count: 'exact' })
       .eq('puzzle_id', puzzleId);
 
     const { count: faster } = await supabase
-      .from('potd-submissions')
+      .from('potd_submissions')
       .select('*', { count: 'exact' })
       .eq('puzzle_id', puzzleId)
       .lt('time_taken', submissionTime);
