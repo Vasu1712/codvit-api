@@ -25,7 +25,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 1. Validate puzzle answer
     const { data: puzzle, error } = await supabase
       .from('puzzles')
-      .select('answer')
+      .select('*')
       .eq('id', puzzleId)
       .single();
 
@@ -74,8 +74,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   } catch (error) {
     console.error('Submission error:', error);
-    res.status(500).json({ 
-      message: error instanceof Error ? error.message : 'Unknown error'
+    console.error('Request body:', req.body);
+    res.status(500).json({
+      message: error instanceof Error ? error.message : 'Unknown error',
+      details: error instanceof Error ? error.stack : undefined
     });
   }
 }
