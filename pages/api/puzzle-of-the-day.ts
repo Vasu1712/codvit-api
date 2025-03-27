@@ -12,26 +12,61 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
+    const today = new Date('2025-03-28').toISOString().split('T')[0]; // Use the current date from the context
+    const daysSinceEpoch = Math.floor(new Date(today).getTime() / (24 * 60 * 60 * 1000));
+
+    let puzzleData;
+
+    // Check if there's a puzzle already set for today
     const { data, error } = await supabase
       .from('puzzles')
       .select('*')
-      .order('submission_date', { ascending: false })
-      .limit(1)
+      .eq('puzzle_date', today)
       .single();
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // No puzzle found for today, select one based on the current date
+        const { data: puzzles, error: puzzlesError } = await supabase
+          .from('puzzles')
+          .select('*')
+          .is('puzzle_date', null)
+          .order('id', { ascending: true });
 
-    if (!data) {
-      return res.status(404).json({ message: 'No puzzles found' });
+        if (puzzlesError) throw puzzlesError;
+
+        if (puzzles && puzzles.length > 0) {
+          const puzzleIndex = daysSinceEpoch % puzzles.length;
+          puzzleData = puzzles[puzzleIndex];
+
+          // Update the selected puzzle with today's date
+          const { error: updateError } = await supabase
+            .from('puzzles')
+            .update({ puzzle_date: today })
+            .eq('id', puzzleData.id);
+
+          if (updateError) throw updateError;
+        } else {
+          return res.status(404).json({ message: 'No puzzles available' });
+        }
+      } else {
+        throw error;
+      }
+    } else {
+      puzzleData = data;
+    }
+
+    if (!puzzleData) {
+      return res.status(404).json({ message: 'No puzzle found for today' });
     }
 
     res.status(200).json({
-      puzzleId: data.id,
-      title: data.title,
-      imageUrl: data.image_url,
-      description: data.description,
-      username: data.username,
-      submissionDate: data.submission_date
+      puzzleId: puzzleData.id,
+      title: puzzleData.title,
+      imageUrl: puzzleData.image_url,
+      description: puzzleData.description,
+      username: puzzleData.username,
+      submissionDate: puzzleData.submission_date
     });
   } catch (error) {
     console.error('Error:', error);
