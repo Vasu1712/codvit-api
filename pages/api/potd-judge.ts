@@ -21,6 +21,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const { puzzleId, answer, submissionTime, username } = req.body;
+  if (!puzzleId) {
+    return res.status(400).json({ message: 'Missing puzzleId' });
+  }
   console.log('Incoming request body:', req.body);
     
     if (!puzzleId || typeof puzzleId !== 'string') {
@@ -81,7 +84,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .from('potd_submissions')
       .select('*', { count: 'exact' })
       .eq('puzzle_id', puzzleId)
-      .lt('time_taken', submissionTime);
+      .gt('time_taken', submissionTime);
 
     const percentile = ((faster || 0) / (total || 1)) * 100;
 

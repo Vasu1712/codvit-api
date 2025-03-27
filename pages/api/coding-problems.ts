@@ -28,19 +28,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
       return res.status(400).json({ message: 'Level query parameter is required and must be a string' });
     }
 
-    // Modified prompt to encourage clean JSON output
-    const prompt = `Generate a DSA coding problem for level ${level}. The problem should be one problem from the topics Arrays, Linked Lists, Stacks, Queues, recursion, DFS, BFS, Graphs, or Hash Tables.
+    const prompt = `
+        Generate a DSA coding problem based on the given level ${level}.
 
-Explain the problem in the description part as much as possible. You are asking as an interviewer, so please don't provide solutions. Only ask one problem.
+        ### **Difficulty Breakdown**
+        - Levels **1-10**: Very Easy (Arrays only).
+        - Levels **11-20**: Easy (Topics: Arrays, Strings, Linked Lists).
+        - Levels **21-50**: Medium (Topics: Arrays, Linked Lists, Stacks, Queues, Recursion, Hash Tables).
+        - Levels **51-100**: Hard (Topics: Linked Lists, Stacks, Queues, Recursion, DFS, BFS, Graphs, Hash Tables).
 
-Respond ONLY with a JSON object in this exact format:
+        ### **Problem Constraints**
+        - The problem must be solvable in **O(n) time complexity** whenever possible.
+        - Explain the problem clearly in the description, assuming the user is a beginner in that topic.
+        - You are an interviewer. Do **not** provide solutions, only ask one problem.
+        - Ensure the problem difficulty aligns with the given level.
 
-{
-  "title": "Your generated problem title here",
-  "description": "Your detailed problem description here"
-}
+        ### **Output Format**
+        Explain the problem in the description part as much as possible. You are asking as an interviewer, so please don't provide solutions. Only ask one problem.
+        Respond **ONLY** with a JSON object in the following format, without any extra text before or after:
 
-Do not include any additional text before or after the JSON.`;
+        {
+          "title": "Your generated problem title here",
+          "description": "Your detailed problem description here"
+        }
+
+
+    Do not include any additional text before or after the JSON.`;
 
     const response = await hf.textGeneration({
       model: 'mistralai/Mistral-7B-Instruct-v0.3',
