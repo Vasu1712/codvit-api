@@ -88,10 +88,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const percentile = ((faster || 0) / (total || 1)) * 100;
 
+    const { data: winner, error: winnerError } = await supabase
+      .from('potd_submissions')
+      .select('username, time_taken')
+      .eq('puzzle_id', puzzleId)
+      .order('time_taken', { ascending: true })
+      .limit(1)
+      .single();
+
+    if (winnerError) throw winnerError;
+
     res.status(200).json({
       isCorrect: true,
       timeTaken: submissionTime,
-      percentileBeat: percentile.toFixed(2)
+      percentileBeat: percentile.toFixed(2),
+      winner: winner.username,
+      winnerTime: winner.time_taken
     });
 
   } catch (error) {
