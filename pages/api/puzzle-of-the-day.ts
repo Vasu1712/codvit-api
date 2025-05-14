@@ -12,7 +12,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const today = new Date('2025-03-28').toISOString().split('T')[0]; // Use the current date from the context
+    const today = new Date().toISOString().split('T')[0];
     const daysSinceEpoch = Math.floor(new Date(today).getTime() / (24 * 60 * 60 * 1000));
 
     let puzzleData;
